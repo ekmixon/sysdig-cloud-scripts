@@ -67,6 +67,14 @@ spec:
       - name: sysdig-agent-secrets
         secret:
           secretName: sysdig-agent
+      - name: podinfo
+        downwardAPI:
+          defaultMode: 420
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       hostPID: true
@@ -136,6 +144,8 @@ spec:
         - mountPath: /host/etc/os-release
           name: osrel
           readOnly: true
+        - mountPath: /etc/podinfo
+          name: podinfo
         # Uncomment these lines if you'd like to map /root/ from the
         # host into the container. This can be useful to map
         # /root/.sysdig to pick up custom kernel modules.

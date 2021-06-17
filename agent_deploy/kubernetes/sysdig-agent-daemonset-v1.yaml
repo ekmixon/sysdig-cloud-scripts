@@ -50,6 +50,14 @@ spec:
       - name: varrun-vol
         hostPath:
           path: /var/run
+      - name: podinfo
+        downwardAPI:
+          defaultMode: 420
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
       hostNetwork: true
       hostPID: true
       tolerations:
@@ -126,3 +134,5 @@ spec:
           name: varrun-vol
         - mountPath: /dev/shm
           name: dshm
+        - mountPath: /etc/podinfo
+          name: podinfo
