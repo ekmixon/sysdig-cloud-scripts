@@ -58,6 +58,10 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
             path: namespace
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+            path: name
       hostNetwork: true
       hostPID: true
       tolerations:
