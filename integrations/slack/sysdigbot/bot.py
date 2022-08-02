@@ -40,9 +40,10 @@ class SlackWrapper(object):
         self.slack_client = slack_client
         self.slack_id = slack_id
 
-        self.slack_users = {}
-        for user in self.slack_client.server.users:
-            self.slack_users[user.id] = user.name
+        self.slack_users = {
+            user.id: user.name for user in self.slack_client.server.users
+        }
+
         self.resolved_channels = {}
         self.resolved_users = {}
 
@@ -52,7 +53,7 @@ class SlackWrapper(object):
             return self.resolved_channels[channel]
         elif channel_type == 'C':
             channel_info = self.slack_client.api_call("channels.info", channel=channel)
-            logging.debug("channels.info channel=%s response=%s" % (channel, channel_info))
+            logging.debug(f"channels.info channel={channel} response={channel_info}")
             if channel_info["ok"]:
                 self.resolved_channels[channel] = channel_info['channel']['name']
                 return self.resolved_channels[channel]
@@ -60,7 +61,7 @@ class SlackWrapper(object):
                 return channel
         elif channel_type == 'G':
             group_info = self.slack_client.api_call("groups.info", channel=channel)
-            logging.debug("groups.info channel=%s response=%s" % (channel, group_info))
+            logging.debug(f"groups.info channel={channel} response={group_info}")
             if group_info["ok"]:
                 self.resolved_channels[channel] = group_info['group']['name']
                 return self.resolved_channels[channel]
@@ -77,7 +78,7 @@ class SlackWrapper(object):
             return self.resolved_users[user]
         elif user_type == 'U':
             user_info = self.slack_client.api_call("users.info", user=user)
-            logging.debug("users.info user=%s response=%s" % (user, user_info))
+            logging.debug(f"users.info user={user} response={user_info}")
             if user_info["ok"]:
                 self.resolved_users[user] = user_info["user"]["name"]
                 return self.resolved_users[user]
@@ -103,8 +104,8 @@ class SlackWrapper(object):
             except KeyboardInterrupt:
                 sys.exit(0)
             except Exception as ex:
-                logging.warning("Error on Slack WebSocket: %s" % str(ex))
-                
+                logging.warning(f"Error on Slack WebSocket: {str(ex)}")
+
                 for t in [2**i for i in range(12)]:
                     logging.info("Reconnecting to Slack in %d seconds..." % t)
                     time.sleep(t)
@@ -148,7 +149,7 @@ class SlackWrapper(object):
 
                 self.inputs.append((user_id, reply['channel'], txt.strip(' \t\n\r')))
 
-            if len(self.inputs) != 0:
+            if self.inputs:
                 return
 
 ###############################################################################
@@ -198,7 +199,7 @@ class SlackBuddy(SlackWrapper):
             if '|' in txt:
                 # Link is in the format <http(s)://xxx|desc>. Conver it to [desc](http(s)://xxx)
                 components = txt[1:-1].split("|")
-                newlink = '[%s](%s)' % (components[1], components[0])
+                newlink = f'[{components[1]}]({components[0]})'
                 res = res[:span[0]] + newlink + res[span[1]:]
             else:
                 # Link is in the format <http(s)://xxx>. Just remove the '<' and '>'
@@ -218,7 +219,7 @@ class SlackBuddy(SlackWrapper):
         tags['source'] = 'slack'
         evt['tags'] = tags
 
-        logging.info("Posting event=%s channel=%s" % (repr(evt), channel))
+        logging.info(f"Posting event={repr(evt)} channel={channel}")
         return self._sdclient.post_event(**evt)
 
     def handle_post_event(self, user, channel, line, silent=False):
@@ -227,15 +228,15 @@ class SlackBuddy(SlackWrapper):
         event_from = self.resolve_channel(channel)
         if event_from == "Direct":
             event_from = self.resolve_user(user)
-        else:
-            if self._quiet:
-                silent = True
+        elif self._quiet:
+            silent = True
         event = {
-            "name": "Slack Event From " + event_from,
+            "name": f"Slack Event From {event_from}",
             "description": purged_line,
             "severity": 6,
-            "tags": {}
+            "tags": {},
         }
+
         for item in re.finditer(self.PARAMETER_MATCHER, line):
             key = item.group(1)
             value = item.group(2)
@@ -264,8 +265,8 @@ class SlackBuddy(SlackWrapper):
             if not silent:
                 self.say(channel, 'Event successfully posted to Sysdig Cloud.')
         else:
-            self.say(channel, 'Error posting event: ' + error)
-            logging.error('Error posting event: ' + error)
+            self.say(channel, f'Error posting event: {error}')
+            logging.error(f'Error posting event: {error}')
 
     def run(self):
         while True:
@@ -273,7 +274,7 @@ class SlackBuddy(SlackWrapper):
 
             for user, channel, txt in self.inputs:
                 channel_type = channel[0]
-                logging.debug("Received message user=%s channel=%s line=%s" % (user, channel, txt))
+                logging.debug(f"Received message user={user} channel={channel} line={txt}")
                 if txt.startswith('!help'):
                     self.handle_help(channel)
                 elif txt.startswith('!post_event'):
@@ -292,7 +293,7 @@ class SlackBuddy(SlackWrapper):
                         self.handle_post_event(user, channel, txt)
                         if ch == "Direct":
                             self.say(channel, "By the way, you have the option to customize title, description, severity and other event properties. Type `!help` to learn how to do it.")
-                        elif (ch != "Direct" and not self._quiet):
+                        elif not self._quiet:
                             self.say(channel, "To reduce channel noise, Sysdigbot will now stop confirming events automatically posted on chats from this user.")
                         self.auto_events_message_sent.add(user)
                 elif channel_type == 'D':
